@@ -1,7 +1,7 @@
 require "spec_helper"
 
-class CC::Workspace
-  describe PathTree do
+module CC
+  describe Workspace do
     include FileSystemHelpers
 
     MAX_FILTER_SECONDS = 10
@@ -16,9 +16,10 @@ class CC::Workspace
         exclude_paths = make_exclude_paths
 
         elapsed = Benchmark.realtime do
-          tree = PathTree.for_path(".")
-          tree.exclude_paths(exclude_paths)
-          tree.all_paths
+          workspace = described_class.new
+          workspace.add_all
+          workspace.remove(exclude_paths)
+          workspace.paths
         end
         puts "PathTree over #{`find . -type f -print | wc -l`.strip} files, with #{exclude_paths.count} excludes took: #{elapsed}s"
 

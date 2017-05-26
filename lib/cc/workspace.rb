@@ -1,39 +1,89 @@
+require "cc/workspace/fs_node"
+
 module CC
   class Workspace
     autoload :Exclusion, "cc/workspace/exclusion"
-    autoload :PathTree, "cc/workspace/path_tree"
 
-    def initialize(path_tree = PathTree.for_path("."))
-      @path_tree = path_tree
+    class EscapeError < StandardError; end
+
+    def initialize(work_dir = ".")
+      @work_dir = Pathname(work_dir).expand_path.freeze
+      @root_node = FSNode.new(@work_dir)
     end
 
-    def clone
-      self.class.new(path_tree.clone)
+    def initialize_copy(source)
+      @work_dir = source.work_dir.clone
+      @root_node = source.root_node.clone
     end
 
     def paths
-      path_tree.all_paths
+      Dir.chdir(work_dir) do
+        root_node.paths.map do |path|
+          relative_path = path.relative_path_from(work_dir)
+          if relative_path.directory?
+            relative_path.to_s + "/"
+          else
+            relative_path.to_s
+          end
+        end
+      end
     end
 
     def add(paths)
-      if paths.present?
-        path_tree.include_paths(paths)
+      Array(paths).each do |path|
+        path = Pathname(path)
+        contain! path
+        path_chunks = normalized_path_chunks(path)
+        if path_chunks == ["."]
+          root_node.add_all
+        else
+          root_node.add(*path_chunks)
+        end
       end
+    end
+
+    def add_all
+      root_node.add_all
     end
 
     def remove(patterns)
       Array(patterns).each do |pattern|
         exclusion = Exclusion.new(pattern)
+        paths = Dir.chdir(work_dir) { exclusion.expand }
         if exclusion.negated?
-          path_tree.include_paths(exclusion.expand)
+          paths.each { |path| add path }
         else
-          path_tree.exclude_paths(exclusion.expand)
+          paths.each do |path|
+            path = Pathname(path)
+            contain! path
+            root_node.remove(*normalized_path_chunks(path))
+          end
         end
       end
     end
 
+    protected
+
+    attr_reader :work_dir, :root_node
+
     private
 
-    attr_reader :path_tree
+    def contain!(path)
+      if path.
+         expand_path(work_dir).
+         cleanpath.
+         relative_path_from(work_dir).
+         to_s.start_with? ".."
+        raise EscapeError, "Workspace at #{work_dir} can not handle #{path} because it's outside of it."
+      end
+    end
+
+    def normalized_path_chunks(path)
+      path.
+        expand_path(work_dir).
+        cleanpath.
+        relative_path_from(work_dir).
+        each_filename.to_a
+    end
   end
 end

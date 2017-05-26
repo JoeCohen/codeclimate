@@ -98,7 +98,7 @@ module CC::CLI
             analyze = Analyze.new(args)
             engines_runner = double(run: "peace")
 
-            expect(CC::Analyzer::EnginesRunner).to receive(:new).with(anything, anything, anything, anything, paths).and_return(engines_runner)
+            expect(CC::Analyzer::EnginesRunner).to receive(:new).with(anything, anything, anything, anything, paths, anything, anything).and_return(engines_runner)
 
             analyze.run
           end
